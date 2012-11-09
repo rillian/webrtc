@@ -68,11 +68,11 @@ int main(int argc, char* argv[])
 	WebRtc_UWord32 ATdiff = 0;
     if (argc > 4)
     {
-        if (argv[4] >= 0)
+        if (argv[4])
             SNdiff = atoi(argv[4]) - packet.sequenceNumber();
         if (argc > 5)
         {
-            if (argv[5] >= 0)
+            if (argv[5])
                 ATdiff = atoi(argv[5]) - packet.time();
         }
     }
