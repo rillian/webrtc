@@ -315,6 +315,7 @@
                     inst.funcGetMDinfo=NULL; \
                     inst.funcGetPitch=NULL; \
                     inst.funcUpdBWEst=NULL; \
+                    inst.funcDurationEst=NULL; \
                     inst.funcGetErrorCode=NULL;
 
 #define SET_G726_32_FUNCTIONS(inst) \
@@ -338,6 +339,7 @@
                     inst.funcGetMDinfo=NULL; \
                     inst.funcGetPitch=NULL; \
                     inst.funcUpdBWEst=NULL; \
+                    inst.funcDurationEst=NULL; \
                     inst.funcGetErrorCode=NULL;
 
 #define SET_OPUS_FUNCTIONS(inst) \
@@ -349,6 +351,7 @@
                     inst.funcGetMDinfo=NULL; \
                     inst.funcGetPitch=NULL; \
                     inst.funcUpdBWEst=NULL; \
+                    inst.funcDurationEst=NULL; \
                     inst.funcGetErrorCode=NULL;
 
 #define SET_OPUSSLAVE_FUNCTIONS(inst) \
