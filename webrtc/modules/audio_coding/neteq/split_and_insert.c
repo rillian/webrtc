@@ -17,8 +17,12 @@
 #include <string.h>
 
 #include "signal_processing_library.h"
-
 #include "neteq_error_codes.h"
+#include "opus.h"
+
+#ifndef MAX
+#define MAX(x, y) (((x)>(y)) ? (x) : (y))
+#endif
 
 int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_inst,
                                       SplitInfo_t *split_inst, WebRtc_Word16 *flushed)
@@ -47,6 +51,54 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
         {
             return PBUFFER_INSERT_ERROR5;
         }
+    }
+    else if (split_inst->deltaBytes == OPUS_SPLIT)
+    {
+        /* Special case opus split */
+        unsigned char* payload = (unsigned char*)packet->payload;
+        int samples = opus_packet_get_samples_per_frame(payload, 48000);
+        /* Allocate temporary storage for constructed payloads.
+         * FIXME: Does it need to outlive this function?? */
+#define OPUS_RP_MAXLEN (1277+48)
+        unsigned char data[OPUS_RP_MAXLEN];
+        int frames, step;
+        /* FIXME: OpusRepacketizer should be in SplitInfo_t to avoid malloc. */
+        OpusRepacketizer* rp = opus_repacketizer_create();
+        if (!rp) {
+            return PBUFFER_INSERT_ERROR1;
+        }
+        i_ok = opus_repacketizer_cat(rp, payload, len);
+        if (i_ok < 0) {
+            opus_repacketizer_destroy(rp);
+            return PBUFFER_INSERT_ERROR2;
+        }
+        frames = opus_repacketizer_get_nb_frames(rp);
+        /* Just split the packet into two or three */
+        step = frames / 2;
+        if (step < 1) {
+          step = 1;
+        }
+        i = 0;
+        while (i < frames) {
+            int bytes = opus_repacketizer_out_range(rp, i, MAX(frames,i+step), data, OPUS_RP_MAXLEN);
+            if (bytes < 0) {
+                opus_repacketizer_destroy(rp);
+                return PBUFFER_INSERT_ERROR3;
+            }
+            /* insert the split packets */
+            temp_packet.payload = (WebRtc_Word16*)data;
+            temp_packet.payloadLen = bytes;
+            temp_packet.timeStamp = packet->timeStamp + samples * i;
+            temp_packet.starts_byte1 = 0;
+            i_ok = WebRtcNetEQ_PacketBufferInsert(Buffer_inst, &temp_packet, &localFlushed);
+            *flushed |= localFlushed;
+            if (i_ok < 0) {
+                opus_repacketizer_destroy(rp);
+                return PBUFFER_INSERT_ERROR4;
+            }
+            i += step;
+        }
+        opus_repacketizer_destroy(rp);
     }
     else if (split_inst->deltaBytes < -10)
     {

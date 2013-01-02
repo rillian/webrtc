@@ -55,6 +55,7 @@ typedef struct
 } CodecDbInst_t;
 
 #define NO_SPLIT -1 /* codec payload cannot be split */
+#define OPUS_SPLIT -2 /* codec payload can be split with a custom call */
 
 typedef struct
 {

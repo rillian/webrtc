@@ -14,6 +14,7 @@
       'dependencies': [
         'CNG',
         '<(webrtc_root)/common_audio/common_audio.gyp:signal_processing',
+        '<(DEPTH)/third_party/opus/opus.gyp:opus',
       ],
       'defines': [
         'NETEQ_VOICEENGINE_CODECS', # TODO: Should create a Chrome define which

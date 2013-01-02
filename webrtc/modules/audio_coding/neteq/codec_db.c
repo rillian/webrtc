@@ -469,9 +469,6 @@ int WebRtcNetEQ_DbGetSplitInfo(SplitInfo_t *inst, enum WebRtcNetEQDecoder codecI
 #ifdef NETEQ_ISAC_FB_CODEC
         case kDecoderISACfb:
 #endif
-#ifdef NETEQ_OPUS_CODEC
-        case kDecoderOpus:
-#endif
 #ifdef NETEQ_ARBITRARY_CODEC
         case kDecoderArbitrary:
 #endif
@@ -505,6 +502,14 @@ int WebRtcNetEQ_DbGetSplitInfo(SplitInfo_t *inst, enum WebRtcNetEQDecoder codecI
             return 0;
         }
 
+#ifdef NETEQ_OPUS_CODEC
+        case kDecoderOpus:
+        {
+            /* Opus payloads can be split with a custom api call. */
+            inst->deltaBytes = OPUS_SPLIT;
+            return 0;
+        }
+#endif
             /*
              * Sample based coders are a special case.
              * In this case, deltaTime signals the number of bytes per timestamp unit times 2
