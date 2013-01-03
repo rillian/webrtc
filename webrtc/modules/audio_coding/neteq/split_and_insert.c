@@ -57,31 +57,42 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
         /* Special case opus split */
         unsigned char* payload = (unsigned char*)packet->payload;
         int samples = opus_packet_get_samples_per_frame(payload, 48000);
+        int frames = opus_packet_get_nb_frames(payload, len);
         /* Allocate temporary storage for constructed payloads.
          * FIXME: Does it need to outlive this function?? */
 #define OPUS_RP_MAXLEN (1277+48)
         unsigned char data[OPUS_RP_MAXLEN];
-        int frames, step;
+        /* Don't split packets smaller than 40 ms */
+        if (samples*frames < 40*48)
+        {
+             printf("directly inserting %d ms opus packet.\n", samples*frames/48);
+             i_ok = WebRtcNetEQ_PacketBufferInsert(Buffer_inst, packet, &localFlushed);
+             *flushed |= localFlushed;
+             if (i_ok < 0)
+             {
+                 return PBUFFER_INSERT_ERROR5;
+             }
+
+             return 0;
+        }
         /* FIXME: OpusRepacketizer should be in SplitInfo_t to avoid malloc. */
         OpusRepacketizer* rp = opus_repacketizer_create();
-        if (!rp) {
+        if (!rp)
+        {
             return PBUFFER_INSERT_ERROR1;
         }
         i_ok = opus_repacketizer_cat(rp, payload, len);
-        if (i_ok < 0) {
+        if (i_ok < 0)
+        {
             opus_repacketizer_destroy(rp);
             return PBUFFER_INSERT_ERROR2;
         }
         frames = opus_repacketizer_get_nb_frames(rp);
-        /* Just split the packet into two or three */
-        step = frames / 2;
-        if (step < 1) {
-          step = 1;
-        }
-        i = 0;
-        while (i < frames) {
-            int bytes = opus_repacketizer_out_range(rp, i, MAX(frames,i+step), data, OPUS_RP_MAXLEN);
+        for (i = 0; i < frames; i++)
+        {
+            int bytes = opus_repacketizer_out_range(rp, i, i+1, data, OPUS_RP_MAXLEN);
             if (bytes < 0) {
+                printf("ERROR splitting opus packet!\n");
                 opus_repacketizer_destroy(rp);
                 return PBUFFER_INSERT_ERROR3;
             }
@@ -90,14 +101,20 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
             temp_packet.payloadLen = bytes;
             temp_packet.timeStamp = packet->timeStamp + samples * i;
             temp_packet.starts_byte1 = 0;
+            printf("  opus 0x%p %d bytes %d samples %d\n",
+                   temp_packet.payload,
+                   temp_packet.payloadLen,
+                   samples,
+                   temp_packet.timeStamp);
             i_ok = WebRtcNetEQ_PacketBufferInsert(Buffer_inst, &temp_packet, &localFlushed);
             *flushed |= localFlushed;
             if (i_ok < 0) {
                 opus_repacketizer_destroy(rp);
                 return PBUFFER_INSERT_ERROR4;
             }
-            i += step;
         }
+        printf("split %d ms opus packet into %d.\n",
+               samples*frames/48, frames);
         opus_repacketizer_destroy(rp);
     }
     else if (split_inst->deltaBytes < -10)
