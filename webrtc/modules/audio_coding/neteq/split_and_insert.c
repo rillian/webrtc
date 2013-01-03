@@ -55,6 +55,7 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
     else if (split_inst->deltaBytes == OPUS_SPLIT)
     {
         /* Special case opus split */
+        static WebRtc_UWord32 last_timestamp = 0;
         unsigned char* payload = (unsigned char*)packet->payload;
         int samples = opus_packet_get_samples_per_frame(payload, 48000);
         int frames = opus_packet_get_nb_frames(payload, len);
@@ -62,6 +63,11 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
          * FIXME: Does it need to outlive this function?? */
 #define OPUS_RP_MAXLEN (1277+48)
         unsigned char data[OPUS_RP_MAXLEN];
+        printf("got %d ms opus packet %d bytes %d delta %d\n",
+            samples*frames,
+            len,
+            packet->timeStamp,
+            packet->timeStamp - last_timestamp);
         /* Don't split packets smaller than 40 ms */
         if (samples*frames < 40*48)
         {
@@ -101,11 +107,12 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
             temp_packet.payloadLen = bytes;
             temp_packet.timeStamp = packet->timeStamp + samples * i;
             temp_packet.starts_byte1 = 0;
-            printf("  opus 0x%p %d bytes %d samples %d\n",
+            printf("  opus 0x%p %d bytes %d samples %d delta %d\n",
                    temp_packet.payload,
                    temp_packet.payloadLen,
                    samples,
-                   temp_packet.timeStamp);
+                   temp_packet.timeStamp,
+                   temp_packet.timeStamp - last_timestamp);
             i_ok = WebRtcNetEQ_PacketBufferInsert(Buffer_inst, &temp_packet, &localFlushed);
             *flushed |= localFlushed;
             if (i_ok < 0) {
@@ -115,6 +122,7 @@ int WebRtcNetEQ_SplitAndInsertPayload(RTPPacket_t *packet, PacketBuf_t *Buffer_i
         }
         printf("split %d ms opus packet into %d.\n",
                samples*frames/48, frames);
+        last_timestamp = packet->timeStamp;
         opus_repacketizer_destroy(rp);
     }
     else if (split_inst->deltaBytes < -10)
